@@ -1,0 +1,125 @@
+version: '3.8' # Versi Docker Compose
+
+services:
+  web:
+    # Menggunakan image PHP-Apache. Ganti versi PHP sesuai kebutuhan aplikasi Anda.
+    # Contoh: php:8.2-apache, php:7.4-apache
+    image: php:8.2-apache
+    container_name: php_app_web
+    ports:
+      - "8181:80" # Map port 80 host ke port 80 container (untuk akses web)
+    volumes:
+      # Mount folder aplikasi Anda ke dalam folder /var/www/html di container
+      # Pastikan jalur host (./public) sesuai dengan lokasi file aplikasi Anda
+      - ./app1/public:/var/www/html/ # Lokasi default Apache web root
+    depends_on:
+      - mariadb # Pastikan service 'mariadb' dimulai sebelum 'web'
+    restart: always # Selalu restart container jika berhenti
+
+  onexnxi:
+    image: php:5.6-apache # Aplikasi ini bisa pakai PHP versi lain!
+    container_name: onexnxi
+    ports:
+      - "8182:80" # Port untuk Aplikasi 2
+    volumes:
+      - ./app2/public:/var/www/html/
+    depends_on:
+      - postgres # Pastikan service 'postgres' dimulai sebelum 'web'
+    restart: always
+
+  mariadb:
+    # Menggunakan image MySQL atau MariaDB
+    # Contoh: mysql:8.0, mariadb:10.6
+    image: mariadb:10.6
+    container_name: mariadb
+    ports: # <-- Tambahkan ini untuk MariaDB
+      - "3307:3306" # Map port 3306 host ke port 3306 container
+    environment:
+      # Variabel lingkungan untuk konfigurasi database
+      # Ganti nilai-nilai ini dengan kredensial database Anda
+      MYSQL_ROOT_PASSWORD: amaterasu # Password root database
+      MYSQL_DATABASE: db_dev # Nama database aplikasi Anda
+      MYSQL_USER: app_user # Nama user database aplikasi Anda
+      MYSQL_PASSWORD: amaterasu # Password user database aplikasi Anda
+    volumes:
+      # Menyimpan data database secara persisten
+      # Data akan disimpan di volume bernama 'db_data'
+      - db_data:/var/lib/mysql
+    restart: always # Selalu restart container jika berhenti
+    healthcheck: # Pertahankan healthcheck jika sudah ditambahkan
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pamaterasu"]
+      timeout: 5s
+      retries: 10
+      interval: 3s
+      start_period: 30s
+    
+  phpmyadmin: # <-- Ini adalah service baru untuk phpMyAdmin
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    ports:
+      - "8080:80" # Map port 8080 host ke port 80 container phpMyAdmin
+    environment:
+      # Host database adalah nama service database kita, yaitu 'db'
+      PMA_HOST: mariadb
+      # Port database default MySQL adalah 3306
+      PMA_PORT: 3306
+      # Opsional: Jika Anda ingin login otomatis dengan root atau user lain
+      # PMA_USER: root
+      # PMA_PASSWORD: your_root_password
+      # Atau PMA_USER: your_database_user
+      # PMA_PASSWORD: your_database_user_password
+      UPLOAD_LIMIT: 128M # Batas upload file PHP
+      MEMORY_LIMIT: 256M # Batas memori PHP
+    # depends_on:
+    #   - mariadb # Pastikan service 'mariadb' dimulai sebelum 'phpmyadmin'
+    depends_on:
+      mariadb:
+        condition: service_healthy # Hanya jika healthcheck di 'mariadb' aktif
+    restart: always
+
+  postgres: # <-- Service PostgreSQL baru
+    image: postgres:15 # Gunakan versi PostgreSQL yang stabil
+    container_name: postgres
+    ports:
+      - "5432:5432" # Map port 5432 host ke port 5432 container
+    environment:
+      POSTGRES_DB: pg_app_database # Nama database default
+      POSTGRES_USER: postgres # User database
+      POSTGRES_PASSWORD: amaterasu # Password database
+      # POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256" # Opsional: Untuk PostgreSQL yang lebih baru, kadang diperlukan
+    volumes:
+      - pg_db_data:/var/lib/postgresql/data # Volume persisten untuk data PostgreSQL
+    restart: always
+    healthcheck: # Healthcheck untuk PostgreSQL
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  pgadmin: # <-- Service pgAdmin baru untuk manajemen PostgreSQL
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    ports:
+      - "8081:80" # Port unik untuk pgAdmin, hindari bentrok dengan 8080 (phpMyAdmin)
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com # Email untuk login pgAdmin
+      PGADMIN_DEFAULT_PASSWORD: admin_password # Password untuk login pgAdmin
+      PGADMIN_LISTEN_PORT: 80 # Port internal pgAdmin
+      PGADMIN_CONFIG_SERVER_MODE: 'False' # Mode server tunggal
+      # Tambahan konfigurasi untuk server:
+      PGADMIN_SETUP_SERVER_NAME: 'PostgreSQL Database' # Nama server yang ditampilkan di pgAdmin
+      PGADMIN_SETUP_SERVER_HOST: 'postgres' # Host database: nama service PostgreSQL
+      PGADMIN_SETUP_SERVER_PORT: '5432' # Port PostgreSQL default
+      PGADMIN_SETUP_SERVER_DB: 'pg_app_database' # Nama database
+      PGADMIN_SETUP_SERVER_USERNAME: 'postgres' # Username database
+      PGADMIN_SETUP_SERVER_PASSWORD: 'amaterasu' # Password database
+      PGADMIN_SETUP_SERVER_SSLMODE: 'disable' # SSL mode
+    depends_on:
+      postgres:
+        condition: service_healthy # Pastikan 'pg_db' sehat sebelum pgAdmin dimulai
+    restart: always
+    
+volumes:
+  db_data: # Volume untuk MariaDB
+  pg_db_data: # <-- Volume baru untuk PostgreSQL

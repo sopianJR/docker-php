@@ -1,0 +1,21 @@
+# Docker Volumes
+db_data/
+pg_db_data/
+
+# Database specific files (if you have any local ones)
+*.sql
+*.db
+
+# PHP specific files
+.vscode/
+vendor/
+composer.lock
+composer.phar
+php_error.log
+
+# IDE and OS generated files
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+*.swp
