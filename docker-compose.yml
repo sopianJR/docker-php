@@ -16,9 +16,10 @@ services:
       - mariadb # Pastikan service 'mariadb' dimulai sebelum 'web'
     restart: always # Selalu restart container jika berhenti
 
-  onexnxi:
-    image: php:5.6-apache # Aplikasi ini bisa pakai PHP versi lain!
-    container_name: onexnxi
+  onexpnxi:
+    image: php:7.4-apache # Aplikasi ini bisa pakai PHP versi lain!
+    build: ./app2
+    container_name: onexpnxi
     ports:
       - "8182:80" # Port untuk Aplikasi 2
     volumes:
